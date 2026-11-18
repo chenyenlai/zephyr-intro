@@ -113,11 +113,14 @@ dl.gloss div{min-width:0}
 dl.gloss dt{font-weight:600}
 dl.gloss dd{margin:0;font-size:14px;color:var(--muted);line-height:1.6}
 footer{font-size:13px;color:var(--muted)}
+.home{display:inline-flex;align-items:center;gap:4px;font-size:14px;color:var(--muted);text-decoration:none;margin-bottom:14px}
+.home:hover,.home:focus-visible{color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
+  <a class="home" href="https://chenyenlai.github.io/momo-watch/">← 回首頁</a>
   <h1>Zephyr RTOS 入門</h1>
   <p>手錶、手環、藍牙耳機裡面通常不是跑 Linux，而是一顆很小的微控制器，上面跑一個「即時作業系統」（RTOS）。Zephyr 是其中最完整的一個開源 RTOS。這頁從「為什麼需要 RTOS」講起，再介紹執行緒、排程、中斷、同步、Devicetree、藍牙省電，最後教你怎麼寫第一個程式，每個主題都有可以動手玩的動畫。</p>
   <p>右下角可以暫停動畫、調整速度，點一下動畫也可以暫停。遇到不懂的詞，可以查最後的<a href="#glossary">名詞小辭典</a>。</p>
@@ -591,7 +594,7 @@ target_sources(app PRIVATE src/main.c)</pre>
   <div class="seg" id="spdSeg" role="group" aria-label="動畫速度"><button data-s="0.25" type="button">慢</button><button data-s="0.5" type="button">中</button><button data-s="1" type="button">快</button></div>
 </div>
 
-<footer>內容依 Zephyr Project 官方文件整理。動畫裡的時間、電流、程式大小都是為了說明而簡化的粗估值，實際數字依晶片和設定而不同。</footer>
+<footer>內容依 Zephyr Project 官方文件整理。動畫裡的時間、電流、程式大小都是為了說明而簡化的粗估值，實際數字依晶片和設定而不同。<br><a href="https://chenyenlai.github.io/momo-watch/">← 回首頁</a></footer>
 </div>
 
 <script>
