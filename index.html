@@ -125,7 +125,7 @@ footer{font-size:13px;color:var(--muted)}
   <p>手錶、手環、藍牙耳機裡面通常不是跑 Linux，而是一顆很小的微控制器，上面跑一個「即時作業系統」（RTOS）。Zephyr 是其中最完整的一個開源 RTOS。這頁從「為什麼需要 RTOS」講起，再介紹執行緒、排程、中斷、同步、Devicetree、藍牙省電，最後教你怎麼寫第一個程式，每個主題都有可以動手玩的動畫。</p>
   <p>右下角可以暫停動畫、調整速度，點一下動畫也可以暫停。遇到不懂的詞，可以查最後的<a href="#glossary">名詞小辭典</a>。</p>
   <nav aria-label="章節">
-    <a href="#basics">基礎觀念</a><a href="#sched">執行緒與排程</a><a href="#isr">中斷</a><a href="#sync">同步與優先權反轉</a><a href="#msgq">訊息佇列</a><a href="#power">計時與省電</a><a href="#dt">Devicetree</a><a href="#kconfig">Kconfig</a><a href="#ble">藍牙</a><a href="#start">動手做</a><a href="#vs">和 FreeRTOS 比較</a><a href="porting.html">移植指南 →</a><a href="#glossary">名詞小辭典</a>
+    <a href="#basics">基礎觀念</a><a href="#sched">執行緒與排程</a><a href="#isr">中斷</a><a href="#sync">同步與優先權反轉</a><a href="#msgq">訊息佇列</a><a href="#power">計時與省電</a><a href="#dt">Devicetree</a><a href="#kconfig">Kconfig</a><a href="#ble">藍牙</a><a href="#start">動手做</a><a href="#vs">和 FreeRTOS 比較</a><a href="earbuds.html">藍牙耳機基礎 →</a><a href="porting.html">移植指南 →</a><a href="#glossary">名詞小辭典</a>
   </nav>
 </header>
 
@@ -530,7 +530,7 @@ target_sources(app PRIVATE src/main.c)</pre>
   </div>
   <div class="panel">
     <h3>要把 FreeRTOS 專案搬到 Zephyr？</h3>
-    <p>另一頁 <a href="porting.html">FreeRTOS → Zephyr 移植指南</a> 整理了晶片廠要學什麼、API 怎麼對照、優先權怎麼換算、最常踩的坑、出問題怎麼查，以及要和藍牙部門對齊的問題。</p>
+    <p>先看 <a href="earbuds.html">藍牙耳機基礎</a> 了解耳機怎麼運作（跳頻、協定堆疊、壓縮、緩衝、真無線、多核心），再看 <a href="porting.html">FreeRTOS → Zephyr 移植指南</a>，它整理了晶片廠要學什麼、API 怎麼對照、優先權怎麼換算、最常踩的坑、出問題怎麼查，以及要和藍牙部門對齊的問題。</p>
   </div>
   <div class="feats">
     <div class="feat"><h3>比較適合 Zephyr</h3><p>用 Nordic 晶片做藍牙產品（手錶、手環、感測器）；需要很多協定（藍牙 + USB + 檔案系統）；想要同一份程式跑在不同板子上。</p></div>
