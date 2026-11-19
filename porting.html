@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zephyr 移植指南</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 跟 Zephyr RTOS 入門同一套樣式：單欄閱讀，每個主題一張面板 */
+:root{
+  --bg:#F5F7FB; --panel:#FFFFFF; --fg:#14213A; --muted:#5A6A84; --line:#D6DDE9;
+  --accent:#1F5FD6; --bad:#D23F4B;
+  --b24:#D9822B; --b5:#0F9D8A; --b6:#7A4FD0; --u4:#D6457E;
+  --display:"Space Grotesk","Noto Sans TC",system-ui,sans-serif;
+  --body:"Inter","Noto Sans TC",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1524; --panel:#172136; --fg:#E6ECF7; --muted:#95A3BC; --line:#2B3854;
+    --accent:#6EA2FF; --bad:#FF6B76;
+    --b24:#F0A95A; --b5:#3CCBB6; --b6:#A98BF2; --u4:#F07CA8; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1524; --panel:#172136; --fg:#E6ECF7; --muted:#95A3BC; --line:#2B3854;
+  --accent:#6EA2FF; --bad:#FF6B76;
+  --b24:#F0A95A; --b5:#3CCBB6; --b6:#A98BF2; --u4:#F07CA8; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.75;
+  padding-block:28px 96px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.home{display:inline-flex;align-items:center;gap:4px;font-size:14px;color:var(--muted);text-decoration:none;margin:0 14px 14px 0}
+.home:hover,.home:focus-visible{color:var(--accent)}
+header h1{font-family:var(--display);font-size:clamp(30px,6vw,44px);line-height:1.15;margin:0 0 10px;text-wrap:balance}
+header p{margin:0 0 8px;color:var(--muted);max-width:62ch}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+nav a{font-family:var(--mono);font-size:13px;color:var(--fg);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--panel)}
+nav a:hover,nav a:focus-visible{border-color:var(--accent);color:var(--accent)}
+section{display:flex;flex-direction:column;gap:16px;scroll-margin-top:16px}
+h2{font-family:var(--display);font-size:26px;line-height:1.25;margin:0;text-wrap:balance}
+h2 small{display:block;font-family:var(--mono);font-size:12px;font-weight:400;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+h3{font-size:16px;margin:0}
+p{margin:0;max-width:65ch}
+a{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cap{font-size:13px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:14px;font-family:var(--mono);background:transparent;color:var(--fg);border:0;border-right:1px solid var(--line);padding:6px 12px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.ctl{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted);flex:1 1 150px;min-width:0}
+label.ctl b{color:var(--fg);font-family:var(--mono);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;flex:none}
+input[type=search],input[type=number],select{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);min-width:0}
+input[type=search]{width:100%}
+input[type=number]{width:64px;font-family:var(--mono)}
+ul.pts,ol.pts{margin:0;padding-left:1.3em;max-width:65ch;display:flex;flex-direction:column;gap:4px}
+pre.code{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;tab-size:4}
+pre.code .c{color:var(--muted)}
+pre.code .k{color:var(--accent)}
+code{font-family:var(--mono);font-size:.9em;background:color-mix(in srgb,var(--line) 55%,transparent);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+.file{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:-8px;overflow-wrap:anywhere}
+.ok{color:var(--b5)} .no{color:var(--bad)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}
+td.n{font-weight:600;min-width:7em}
+details.adv{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+details.adv>summary{cursor:pointer;font-weight:600;color:var(--accent)}
+/* 分層圖 */
+.layers{display:flex;flex-direction:column;gap:6px}
+.layers button{font:inherit;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.layers button b{font-family:var(--display);font-size:16px}
+.layers button span.who{flex:none;font-size:12px;font-family:var(--mono);border-radius:999px;padding:1px 9px;color:var(--panel)}
+.layers button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent);background:var(--panel)}
+.who.you{background:var(--accent)} .who.bt{background:var(--b6)} .who.both{background:var(--b5)}
+.ldet{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.ldet div{min-width:0}
+.ldet h3{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:4px}
+.ldet ul{margin:0;padding-left:1.2em;font-size:14px;line-height:1.65}
+/* 路線圖 */
+.stage{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--panel)}
+.stage .sh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.stage .sh b{font-family:var(--display);font-size:18px}
+.stage .sh small{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.stage label{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.6;cursor:pointer}
+.stage label input{margin-top:4px}
+.stage label.done span{color:var(--muted);text-decoration:line-through}
+.stage .goal{font-size:13px;color:var(--b5);font-weight:600}
+.prog{height:10px;border-radius:5px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--b5);transition:width .3s}
+/* 優先權換算 */
+.prio{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px 10px;align-items:center;font-size:14px}
+.prio .hd{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.prio .bar{display:flex;align-items:center;gap:8px;min-width:0}
+.prio .bar i{display:block;height:20px;border-radius:4px;flex:none}
+.prio .ar{color:var(--muted);text-align:center}
+.prio .nm{display:flex;align-items:center;gap:8px;min-width:0}
+/* 初始化順序 */
+.boot{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.boot li{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;align-items:center;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.boot li .lv{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.boot li.fail{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel))}
+.boot li.fail b{color:var(--bad)}
+.boot li.warn{border-color:var(--b24)}
+/* 注意事項卡片 */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card .fh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card h3{font-family:var(--display);font-size:17px;line-height:1.35}
+.card dl{margin:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6}
+.card dt{font-size:12px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.card dd{margin:0}
+.tag{flex:none;font-size:11px;font-family:var(--mono);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.cnt{font-size:13px;color:var(--muted)}
+ul.vids{margin:0;padding-left:1.3em;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 20px}
+.kw{display:flex;flex-wrap:wrap;gap:6px}
+.kw a{font-family:var(--mono);font-size:12px;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--fg);background:var(--panel)}
+.kw a:hover{border-color:var(--accent);color:var(--accent)}
+.qs{display:flex;flex-direction:column;gap:6px}
+.qs label{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.6;cursor:pointer}
+.qs label input{margin-top:4px}
+dl.gloss{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 24px}
+dl.gloss dt{font-weight:600}
+dl.gloss dd{margin:0;font-size:14px;color:var(--muted);line-height:1.6}
+footer{font-size:13px;color:var(--muted)}
+@media (max-width:520px){.boot li{grid-template-columns:1fr;gap:2px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="home" href="./">← Zephyr RTOS 入門</a><a class="home" href="https://chenyenlai.github.io/momo-watch/">回首頁</a>
+  <h1>FreeRTOS → Zephyr 移植指南</h1>
+  <p>寫給晶片廠的人：你們有一塊藍牙耳機開發板，原本跑 FreeRTOS，現在要搬到 Zephyr。藍牙驅動由藍牙部門負責，你要負責把晶片變成 Zephyr 平台、再把應用程式搬過去。這頁整理<b>要學什麼</b>、<b>要注意什麼</b>、<b>出問題怎麼查</b>、<b>資料去哪裡找</b>。</p>
+  <p>還不熟 Zephyr 的基本觀念（執行緒、Devicetree、Kconfig），建議先看 <a href="./">Zephyr RTOS 入門</a>。這頁的勾選進度只存在你自己的瀏覽器裡。</p>
+  <nav aria-label="章節">
+    <a href="#roles">分工</a><a href="#road">學習路線</a><a href="#api">API 對照</a><a href="#prio">優先權換算</a><a href="#init">初始化順序</a><a href="#pitfalls">該注意的地方</a><a href="#debug">怎麼查</a><a href="#where">去哪裡查</a><a href="#bt">和藍牙部門對齊</a><a href="#glossary">名詞</a>
+  </nav>
+</header>
+
+<section id="roles">
+  <h2><small>Who does what</small>先弄清楚分工</h2>
+  <p>一個 Zephyr 系統由下往上分成幾層。點每一層，看誰負責、要學什麼、要注意什麼。最底下的 SoC 移植要最早定案：沒有它，上面全部跑不起來。</p>
+  <div class="panel">
+    <div class="layers" id="layers" role="group" aria-label="系統分層"></div>
+    <div class="ldet" id="ldet"></div>
+  </div>
+</section>
+
+<section id="road">
+  <h2><small>Learning roadmap</small>學習路線</h2>
+  <p>分成六個階段，每個階段最後都有一個「做得到才算過關」的目標。勾選做完的項目，上面的進度條會跟著動。</p>
+  <div class="panel">
+    <div class="row" style="justify-content:space-between"><span class="cnt" id="roadCnt"></span><button type="button" id="roadReset" style="font:inherit;font-size:13px;background:none;border:1px solid var(--line);border-radius:6px;padding:2px 10px;color:var(--muted);cursor:pointer">清除勾選</button></div>
+    <div class="prog"><i id="roadBar"></i></div>
+  </div>
+  <div id="stages" style="display:flex;flex-direction:column;gap:12px"></div>
+</section>
+
+<section id="api">
+  <h2><small>API mapping</small>FreeRTOS → Zephyr API 對照</h2>
+  <p>大部分 API 都有對應，但有幾個「看起來一樣、其實不一樣」的地方，在「注意」那一欄。可以搜尋 FreeRTOS 或 Zephyr 的函式名稱。</p>
+  <div class="panel">
+    <input type="search" id="apiQ" placeholder="搜尋，例如 xQueue、timer、ISR、malloc" aria-label="搜尋 API">
+    <div class="scroll"><table><thead><tr><th>FreeRTOS</th><th>Zephyr</th><th>注意</th></tr></thead><tbody id="apiBody"></tbody></table></div>
+    <div class="cap" id="apiCnt"></div>
+  </div>
+  <p>建議先寫一層很薄的 <b>OSAL</b>（作業系統抽象層），讓應用程式碼先不用大改，之後再慢慢換成原生 Zephyr 寫法。Zephyr 沒有官方的 FreeRTOS 相容層（有 POSIX 和 CMSIS-RTOS v2，如果原本的程式已經是用 CMSIS-RTOS v2 寫的，可以直接用）。</p>
+  <div class="file">osal.h（示意）</div>
+  <pre class="code"><span class="k">#include</span> &lt;zephyr/kernel.h&gt;
+
+<span class="c">/* 時間一律用毫秒，不要再用 tick */</span>
+<span class="k">static inline void</span> osal_delay_ms(uint32_t ms) { k_msleep(ms); }
+
+<span class="c">/* 號誌：在 ISR 和執行緒都可以呼叫同一個 give */</span>
+<span class="k">typedef struct</span> k_sem osal_sem_t;
+<span class="k">static inline int</span> osal_sem_take(osal_sem_t *s, int32_t ms)
+{
+    <span class="k">return</span> k_sem_take(s, ms &lt; 0 ? K_FOREVER : K_MSEC(ms));
+}
+
+<span class="c">/* 優先權換算：FreeRTOS 數字越大越優先，Zephyr 數字越小越優先 */</span>
+<span class="k">#define</span> OSAL_PRIO(frtos_prio)  ((OSAL_MAX_PRIORITIES - 1) - (frtos_prio))</pre>
+</section>
+
+<section id="prio">
+  <h2><small>Priority mapping</small>優先權換算</h2>
+  <p>這是移植時最常出錯的地方：FreeRTOS 的優先權<b>數字越大越優先</b>，Zephyr 剛好相反，<b>數字越小越優先</b>，負數還是「協作式」（不會被其他執行緒搶占）。下面填入你們現在的 task 優先權，看換算後的結果。</p>
+  <div class="panel">
+    <div class="row">
+      <label class="ctl" for="pMax"><span>FreeRTOS 的 configMAX_PRIORITIES：<b id="pMaxO"></b></span><input type="range" id="pMax" min="4" max="32" value="7"></label>
+      <label class="ctl" for="pNum"><span>Zephyr 的 CONFIG_NUM_PREEMPT_PRIORITIES：<b id="pNumO"></b></span><input type="range" id="pNum" min="8" max="32" value="15"></label>
+    </div>
+    <div class="prio" id="prioGrid"></div>
+    <div class="cap" id="prioOut"></div>
+  </div>
+  <details class="adv">
+    <summary>進階：要不要用協作式優先權？</summary>
+    <p>Zephyr 的藍牙 host 有幾個內部執行緒預設用協作式優先權，確保協定處理不會被應用程式打斷。你的應用執行緒一般用搶占式（0 以上）就好。音訊這種很趕時間的工作，通常靠「中斷 + DMA + 高優先權執行緒」處理，而不是把一般執行緒改成協作式：協作式執行緒如果跑太久，會讓所有搶占式執行緒都等它。</p>
+  </details>
+</section>
+
+<section id="init">
+  <h2><small>Init levels</small>開機初始化順序</h2>
+  <p>FreeRTOS 專案通常在 <code>main()</code> 裡自己一個一個呼叫 <code>xxx_init()</code>，順序寫死在程式裡。Zephyr 的驅動是<b>開機時自動初始化</b>，順序由「等級」和「優先權數字」決定：</p>
+  <ul class="pts">
+    <li><b>PRE_KERNEL_1</b>：核心還沒啟動，只能做最基本的（時脈、中斷控制器、序列埠 console）。</li>
+    <li><b>PRE_KERNEL_2</b>：還是沒有核心服務，但可以用 PRE_KERNEL_1 初始化好的東西。</li>
+    <li><b>POST_KERNEL</b>：核心已經在跑，大部分驅動在這裡（I²C、SPI、I2S、codec 晶片）。</li>
+    <li><b>APPLICATION</b>：應用程式層級的初始化。</li>
+  </ul>
+  <p>同一個等級裡，數字越小越早。如果一個驅動在它依賴的東西之前初始化，就會失敗。下面這個例子：音訊 codec 晶片是透過 I²C 設定的，所以 codec 一定要在 I²C 控制器之後初始化。改改看 codec 的設定：</p>
+  <div class="panel">
+    <div class="row">
+      <label class="ctl" for="iLv"><span>Codec 驅動的等級</span><select id="iLv"><option>PRE_KERNEL_1</option><option>PRE_KERNEL_2</option><option selected>POST_KERNEL</option><option>APPLICATION</option></select></label>
+      <label class="ctl" for="iPr"><span>Codec 的優先權數字：<b id="iPrO"></b></span><input type="range" id="iPr" min="0" max="99" value="40"></label>
+    </div>
+    <ol class="boot" id="bootList"></ol>
+    <div class="cap" id="bootOut"></div>
+  </div>
+  <p>Zephyr 在建置時會檢查這種錯誤：<code>CONFIG_CHECK_INIT_PRIORITIES</code>（預設開啟）會依照 Devicetree 裡的依賴關係比對初始化順序，順序錯了直接編譯失敗。想看整個系統的初始化順序，可以跑 <code>west build -t initlevels</code>。</p>
+</section>
+
+<section id="pitfalls">
+  <h2><small>Pitfalls</small>該注意的地方</h2>
+  <p>從 FreeRTOS 搬過來，最常踩到的坑。每張卡片都寫了<b>症狀</b>（你會看到什麼）、<b>原因</b>、<b>怎麼查</b>、<b>怎麼改</b>。可以依類別篩選。</p>
+  <div class="seg" id="pfSeg" role="group" aria-label="類別">
+    <button data-c="all" aria-pressed="true">全部</button><button data-c="核心" aria-pressed="false">核心</button><button data-c="記憶體" aria-pressed="false">記憶體</button><button data-c="中斷" aria-pressed="false">中斷</button><button data-c="建置" aria-pressed="false">建置與硬體</button><button data-c="藍牙" aria-pressed="false">藍牙與專案</button>
+  </div>
+  <div class="cards" id="cards"></div>
+</section>
+
+<section id="debug">
+  <h2><small>How to check</small>出問題怎麼查</h2>
+  <p>Zephyr 很多東西是在建置時「算出來」的：Kconfig 會因為依賴沒滿足被悄悄關掉、Devicetree 會被好幾層檔案疊加。所以除錯的第一步，通常是去看<b>建置後產生的最終結果</b>，而不是你寫的原始檔。</p>
+  <div class="panel">
+    <div class="scroll"><table><thead><tr><th>我想知道</th><th>去看這裡</th></tr></thead><tbody>
+      <tr><td class="n">Kconfig 最後到底開了什麼</td><td><code>build/zephyr/.config</code>。在 prj.conf 設了 <code>=y</code> 卻沒生效，建置訊息會有「assigned the value y but got the value n」的警告，通常是依賴的選項沒開。</td></tr>
+      <tr><td class="n">Devicetree 最後長什麼樣</td><td><code>build/zephyr/zephyr.dts</code>：板子、SoC、overlay 全部疊完的結果。</td></tr>
+      <tr><td class="n">Devicetree 巨集展開成什麼</td><td><code>build/zephyr/include/generated/zephyr/devicetree_generated.h</code></td></tr>
+      <tr><td class="n">瀏覽、搜尋 Kconfig 選項</td><td><code>west build -t menuconfig</code>（文字介面）或 <code>west build -t guiconfig</code>（視窗介面），按 <code>/</code> 搜尋，還看得到每個選項的依賴。</td></tr>
+      <tr><td class="n">驅動初始化順序</td><td><code>west build -t initlevels</code></td></tr>
+      <tr><td class="n">程式和 RAM 用在哪</td><td><code>west build -t rom_report</code>、<code>west build -t ram_report</code>；符號位置看 <code>build/zephyr/zephyr.map</code>。</td></tr>
+      <tr><td class="n">每個執行緒的狀態、堆疊用量</td><td>開 <code>CONFIG_SHELL=y</code> 後打 <code>kernel threads</code>、<code>kernel stacks</code>；或開 <code>CONFIG_THREAD_ANALYZER=y</code> 定期印出。</td></tr>
+      <tr><td class="n">當機在哪一行</td><td>fatal error 訊息會印出 PC 位址，用 <code>arm-zephyr-eabi-addr2line -e build/zephyr/zephyr.elf 0x位址</code> 換成檔名和行號（RISC-V 用 <code>riscv64-zephyr-elf-addr2line</code>）。</td></tr>
+      <tr><td class="n">逐行除錯</td><td><code>west debug</code>（燒錄並開 GDB）、<code>west attach</code>（不燒錄直接接上）。</td></tr>
+      <tr><td class="n">執行緒切換的時間軸</td><td><code>CONFIG_TRACING=y</code> 搭配 SEGGER SystemView 或 Percepio Tracealyzer。原本在 FreeRTOS 用過 Tracealyzer 的人會很熟悉。</td></tr>
+      <tr><td class="n">藍牙封包</td><td>開 <code>CONFIG_BT_DEBUG_MONITOR_UART=y</code>（或 <code>_RTT</code>），把 HCI 封包送出來，在電腦上用 <code>btmon</code> 或 Wireshark 看。</td></tr>
+      <tr><td class="n">有沒有被不該呼叫的地方呼叫</td><td>開發期間一律開 <code>CONFIG_ASSERT=y</code>：在 ISR 裡呼叫會等待的 API、參數錯誤，會直接停在出錯的那一行。</td></tr>
+      <tr><td class="n">核心在我們的晶片上正不正常</td><td><code>west twister -p 你的板子 -T tests/kernel</code>：跑官方的核心測試，SoC 移植完一定要跑。</td></tr>
+    </tbody></table></div>
+  </div>
+  <div class="file">開發期間建議的 prj.conf 除錯選項</div>
+  <pre class="code">CONFIG_ASSERT=y                 <span class="c"># 呼叫錯 API 馬上停</span>
+CONFIG_LOG=y
+CONFIG_LOG_MODE_DEFERRED=y      <span class="c"># LOG 先排隊，由背景執行緒印，不卡住呼叫的人</span>
+CONFIG_SHELL=y                  <span class="c"># kernel threads / kernel stacks</span>
+CONFIG_THREAD_ANALYZER=y
+CONFIG_THREAD_ANALYZER_AUTO=y
+CONFIG_STACK_SENTINEL=y         <span class="c"># 堆疊溢位偵測（有 MPU 可改用 CONFIG_MPU_STACK_GUARD）</span>
+CONFIG_EXTRA_EXCEPTION_INFO=y   <span class="c"># 當機時印更多暫存器資訊</span>
+CONFIG_DEBUG_OPTIMIZATIONS=y    <span class="c"># 關掉最佳化，方便 GDB 逐行（量產要拿掉）</span></pre>
+</section>
+
+<section id="where">
+  <h2><small>Where to look</small>去哪裡查</h2>
+  <div class="panel">
+    <h3>官方文件（docs.zephyrproject.org）</h3>
+    <ul class="vids">
+      <li><a href="https://docs.zephyrproject.org/latest/hardware/porting/board_porting.html" target="_blank" rel="noopener">Board Porting Guide</a>：新增 SoC 和板子（HWMv2）</li>
+      <li><a href="https://docs.zephyrproject.org/latest/hardware/porting/arch.html" target="_blank" rel="noopener">Architecture Porting Guide</a>：CPU 架構還沒支援時才需要</li>
+      <li><a href="https://docs.zephyrproject.org/latest/build/dts/index.html" target="_blank" rel="noopener">Devicetree</a>：語法、binding、HOWTOs</li>
+      <li><a href="https://docs.zephyrproject.org/latest/build/kconfig/index.html" target="_blank" rel="noopener">Configuration System (Kconfig)</a></li>
+      <li><a href="https://docs.zephyrproject.org/latest/kernel/drivers/index.html" target="_blank" rel="noopener">Device Driver Model</a>：驅動怎麼寫、怎麼初始化</li>
+      <li><a href="https://docs.zephyrproject.org/latest/connectivity/bluetooth/index.html" target="_blank" rel="noopener">Bluetooth</a>：host、controller、HCI、LE Audio</li>
+      <li><a href="https://docs.zephyrproject.org/latest/services/pm/index.html" target="_blank" rel="noopener">Power Management</a></li>
+      <li><a href="https://docs.zephyrproject.org/latest/develop/test/twister.html" target="_blank" rel="noopener">Twister 測試工具</a></li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h3>原始碼：照著抄最快</h3>
+    <p>Zephyr 的原始碼就是最好的範例。找一家架構和你們接近的晶片廠，看他們怎麼做：</p>
+    <div class="scroll"><table><thead><tr><th>路徑</th><th>看什麼</th></tr></thead><tbody>
+      <tr><td><code>soc/nordic/</code></td><td>SoC 層怎麼組織：soc.yml、Kconfig、開機程式</td></tr>
+      <tr><td><code>boards/nordic/nrf5340_audio_dk/</code></td><td>一塊耳機開發板的 board 定義（.dts、Kconfig、board.yml）</td></tr>
+      <tr><td><code>dts/arm/nordic/</code>、<code>dts/riscv/</code></td><td>SoC 的 .dtsi 怎麼寫</td></tr>
+      <tr><td><code>dts/bindings/</code></td><td>各種硬體的 binding YAML，新硬體照格式寫</td></tr>
+      <tr><td><code>drivers/bluetooth/hci/</code></td><td>各家藍牙控制器怎麼接上 Zephyr host（給藍牙部門參考）</td></tr>
+      <tr><td><code>drivers/i2s/</code>、<code>drivers/audio/</code></td><td>I2S 和 codec 晶片驅動</td></tr>
+      <tr><td><code>subsys/bluetooth/audio/</code></td><td>LE Audio 協定（BAP、CAP、ISO）</td></tr>
+      <tr><td><code>samples/bluetooth/</code></td><td>藍牙範例，包含 LE Audio 的 unicast、broadcast</td></tr>
+      <tr><td><code>tests/kernel/</code></td><td>核心測試，SoC 移植完拿來驗證</td></tr>
+      <tr><td><code>modules/hal/</code></td><td>各家的 HAL（底層暫存器程式庫）怎麼以 module 方式接進來</td></tr>
+      <tr><td>NCS <code>applications/nrf5340_audio</code></td><td>Nordic SDK 裡完整的 LE Audio 耳機應用，音訊架構可以參考</td></tr>
+    </tbody></table></div>
+  </div>
+  <div class="panel">
+    <h3>英文搜尋關鍵字</h3>
+    <div class="cap">中文資料很少，用英文關鍵字搜尋比較有結果。點一下會搜尋 Zephyr 官方文件。</div>
+    <div class="kw" id="kw"></div>
+  </div>
+  <div class="panel">
+    <h3>課程、社群、影片</h3>
+    <ul class="vids">
+      <li><a href="https://academy.nordicsemi.com/" target="_blank" rel="noopener">Nordic DevAcademy</a>：免費課程，從 Fundamentals 開始</li>
+      <li><a href="https://github.com/zephyrproject-rtos/zephyr/discussions" target="_blank" rel="noopener">GitHub Discussions</a>：問問題的地方</li>
+      <li><a href="https://chat.zephyrproject.org/" target="_blank" rel="noopener">Zephyr Discord</a>：開發者聊天室，有 #bluetooth、#devicetree 等頻道</li>
+      <li><a href="https://www.youtube.com/results?search_query=zephyr+developer+summit+board+porting" target="_blank" rel="noopener">影片：Zephyr Developer Summit 板子移植</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=zephyr+device+driver+development" target="_blank" rel="noopener">影片：Zephyr 驅動開發</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=zephyr+LE+audio" target="_blank" rel="noopener">影片：Zephyr LE Audio</a></li>
+      <li><a href="https://interrupt.memfault.com/tags#zephyr" target="_blank" rel="noopener">Memfault Interrupt 部落格</a>：很多 Zephyr 實戰文章</li>
+      <li><a href="https://github.com/zephyrproject-rtos/zephyr/releases" target="_blank" rel="noopener">Release notes</a>：升版前一定要看，API 有改都會寫</li>
+    </ul>
+  </div>
+</section>
+
+<section id="bt">
+  <h2><small>Align with the Bluetooth team</small>要和藍牙部門對齊的問題</h2>
+  <p>驅動雖然由藍牙部門寫，但你們中間的介面要一起定。開會前把這些問題列出來，勾選已經有答案的：</p>
+  <div class="panel qs" id="qs"></div>
+</section>
+
+<section id="glossary">
+  <h2><small>Glossary</small>名詞小辭典</h2>
+  <div class="panel">
+    <dl class="gloss">
+      <div><dt>SoC 移植</dt><dd>讓 Zephyr 認得一顆新晶片：記憶體配置、中斷、時脈、計時器、開機流程。</dd></div>
+      <div><dt>HWMv2</dt><dd>Zephyr 3.7 起的新版硬體模型，用 soc.yml、board.yml 描述 SoC 和板子。</dd></div>
+      <div><dt>.dtsi / .dts</dt><dd>Devicetree 檔。.dtsi 是 SoC 共用的部分，.dts 是一塊板子的完整描述。</dd></div>
+      <div><dt>binding</dt><dd>YAML 檔，規定某種硬體節點要寫哪些屬性，Devicetree 依照它檢查和產生巨集。</dd></div>
+      <div><dt>compatible</dt><dd>Devicetree 節點的「型號」字串，例如 "vendor,i2s"，用來配對驅動和 binding。</dd></div>
+      <div><dt>pinctrl</dt><dd>設定每隻腳位要當什麼功能（GPIO、UART、I2S…）的機制。</dd></div>
+      <div><dt>HAL</dt><dd>晶片廠提供的底層暫存器程式庫，Zephyr 驅動常建在它上面。</dd></div>
+      <div><dt>module</dt><dd>放在 Zephyr 主程式庫之外、由 west 一起下載的程式庫，例如 hal_nordic。</dd></div>
+      <div><dt>west manifest</dt><dd>west.yml，記錄要下載哪些 repo、哪個版本。晶片廠的 SDK 通常就是一份 manifest。</dd></div>
+      <div><dt>blob</dt><dd>不開源的二進位檔（例如控制器韌體），用 west blobs 下載。</dd></div>
+      <div><dt>OSAL</dt><dd>作業系統抽象層，把 RTOS API 包一層，換 RTOS 時應用程式碼不用大改。</dd></div>
+      <div><dt>HCI</dt><dd>藍牙 host 和 controller 之間的標準介面。</dd></div>
+      <div><dt>IPC</dt><dd>多核心之間傳資料的機制，Zephyr 有 ipc_service（常用 RPMsg）。</dd></div>
+      <div><dt>init level</dt><dd>驅動自動初始化的階段：PRE_KERNEL_1、PRE_KERNEL_2、POST_KERNEL、APPLICATION。</dd></div>
+      <div><dt>LTS</dt><dd>長期支援版本，會持續修 bug 和安全問題，適合產品鎖定。</dd></div>
+      <div><dt>qualification</dt><dd>Bluetooth SIG 的產品認證，換了藍牙協定堆疊就要重新做。</dd></div>
+      <div><dt>twister</dt><dd>Zephyr 的自動化測試工具，可以在模擬器或實體板子上跑大量測試。</dd></div>
+    </dl>
+  </div>
+</section>
+
+<footer>內容依 Zephyr Project 官方文件整理。Zephyr 每個版本的 API 和選項名稱可能會改，實際以你們鎖定版本的文件為準。<br><a href="./">← Zephyr RTOS 入門</a>　<a href="https://chenyenlai.github.io/momo-watch/">回首頁</a></footer>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const code=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>');
+function seg(el,cb){el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  el.querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',o===b?'true':'false'));cb(b);});}
+function load(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+/* ---------- 分工 ---------- */
+const LAYERS=[
+ {n:'應用程式',d:'耳機狀態機、按鍵、提示音、配對流程',who:'you',wl:'你',
+  learn:['把 FreeRTOS task 改成 Zephyr 執行緒','`k_msgq`、`k_event`、`k_work` 的用法','先在 `native_sim` 上跑單元測試'],
+  note:['優先權數字要反過來','時間一律改用毫秒','計時器回呼在中斷裡跑'],
+  check:['shell 的 `kernel threads`','`CONFIG_THREAD_ANALYZER`']},
+ {n:'Zephyr 子系統',d:'藍牙 host、LE Audio、電源管理、OTA、settings',who:'both',wl:'你 + 藍牙部門',
+  learn:['藍牙 host 和 controller 怎麼分','LE Audio：ISO、BAP、CAP、LC3','`CONFIG_PM`、MCUboot、settings/NVS'],
+  note:['子系統很多執行緒和記憶體設定都在 Kconfig 裡','藍牙 host 也用系統工作佇列，不要在裡面卡住'],
+  check:['`btmon` 看 HCI 封包','`rom_report`、`ram_report`']},
+ {n:'Zephyr 核心',d:'執行緒、排程、計時、同步',who:'you',wl:'你',
+  learn:['排程規則：搶占式、協作式、時間切片','tickless 和系統計時器','ISR 裡能呼叫什麼、不能呼叫什麼'],
+  note:['`k_malloc` 預設沒有 heap','FPU 多執行緒共用要開 `CONFIG_FPU_SHARING`'],
+  check:['`west twister -T tests/kernel`','`CONFIG_ASSERT=y`']},
+ {n:'驅動',d:'UART、I2S、DMA、codec、藍牙 HCI',who:'bt',wl:'藍牙部門（你要會 review）',
+  learn:['驅動模型：`DEVICE_DT_INST_DEFINE`、API 結構','初始化等級和順序','裝置電源管理'],
+  note:['驅動要符合 Zephyr 標準 API，應用程式才不用綁死','HCI 驅動用 Devicetree 描述（`zephyr,bt-hci`）'],
+  check:['`west build -t initlevels`','`device_is_ready()`']},
+ {n:'SoC / 板子移植',d:'中斷控制器、系統計時器、時脈、pinctrl、記憶體配置、Devicetree',who:'you',wl:'很可能是你',
+  learn:['HWMv2：`soc.yml`、`board.yml`、`Kconfig.soc`','寫 SoC 的 `.dtsi` 和 binding YAML','系統計時器驅動（tickless 靠它）','linker script、開機流程、向量表'],
+  note:['CPU 若是 Cortex-M 或 RISC-V，架構已支援，只要做 SoC 層','自家 DSP 或其他架構，要做架構移植，工作量大很多','上游還是自己維護，要早點決定'],
+  check:['`build/zephyr/zephyr.dts`','`build/zephyr/.config`','hello_world → blinky → tests/kernel']}];
+let lay=4;
+$('#layers').innerHTML=LAYERS.map((l,i)=>`<button type="button" data-i="${i}" aria-pressed="${i===lay}"><span><b>${l.n}</b><br><span class="cap">${l.d}</span></span><span class="who ${l.who}">${l.wl}</span></button>`).join('');
+function layShow(){const l=LAYERS[lay],li=a=>'<ul>'+a.map(s=>'<li>'+code(s)+'</li>').join('')+'</ul>';
+  $('#ldet').innerHTML=`<div><h3>要學</h3>${li(l.learn)}</div><div><h3>要注意</h3>${li(l.note)}</div><div><h3>怎麼查</h3>${li(l.check)}</div>`;}
+seg($('#layers'),b=>{lay=+b.dataset.i;layShow();});layShow();
+
+/* ---------- 學習路線 ---------- */
+const STAGES=[
+ {n:'1. Zephyr 基本功',t:'約 1～2 週',items:['照 Getting Started 裝好 Zephyr 和 SDK','在 `native_sim` 跑 `hello_world`、`synchronization`','讀懂 Devicetree 基本語法和 overlay','用 menuconfig 找選項、看依賴','把 FreeRTOS 專案的一個小模組改寫成 Zephyr 版'],goal:'能自己建一個專案（CMakeLists.txt、prj.conf、main.c）並在 native_sim 上跑'},
+ {n:'2. 參考板實作',t:'約 1 週',items:['買一塊 nRF5340 Audio DK（或其他有 Zephyr 支援的耳機參考板）','燒 `blinky`、藍牙 `peripheral` 範例','跑一個 LE Audio 範例（unicast 或 broadcast）','用 `west debug` 逐行除錯一次'],goal:'看過一個「正確的」Zephyr 耳機系統長什麼樣'},
+ {n:'3. SoC 與板子移植',t:'約 4～8 週（看架構）',items:['確認 CPU 架構是否已被 Zephyr 支援','建立 `soc/<廠商>/` 和 `boards/<廠商>/`（HWMv2）','寫 SoC 的 `.dtsi`、記憶體區域、binding','中斷控制器、系統計時器、時脈控制驅動','pinctrl 和 UART console','跑 `hello_world`、`blinky`','跑 `west twister -T tests/kernel` 全部通過'],goal:'官方核心測試在你們的晶片上全部通過'},
+ {n:'4. 驅動整合（和藍牙部門一起）',t:'約 2～4 週',items:['讀懂驅動模型和初始化等級','review 藍牙部門的 HCI 驅動和 IPC','整合 I2S、DMA、codec 驅動','確認每個驅動都符合 Zephyr 標準 API'],goal:'藍牙 host 透過 HCI 和你們的控制器通訊，能廣播、被手機連上'},
+ {n:'5. 應用程式搬家',t:'看專案大小',items:['盤點所有 FreeRTOS API 呼叫（grep xTask、xQueue、xSemaphore、xTimer、pvPortMalloc）','寫 OSAL 並換算優先權','計時器回呼改成 `k_work`','音訊路徑：緩衝、延遲、中斷優先權重新調整','電源管理：tickless、`CONFIG_PM`、裝置 PM'],goal:'原本的耳機功能在 Zephyr 上都能用，功耗和延遲達到規格'},
+ {n:'6. 量產準備',t:'持續',items:['鎖定 Zephyr 版本（最好是 LTS）','決定上游或自己維護 SDK（west manifest、hal module、blob）','MCUboot 和 OTA','twister 自動化測試接上 CI','排 Bluetooth SIG 認證'],goal:'客戶拿到 SDK 能自己編、自己燒、自己更新'}];
+const RK='zp-road';let done=new Set(load(RK));
+function roadRender(){$('#stages').innerHTML=STAGES.map((s,si)=>`<div class="stage"><div class="sh"><b>${s.n}</b><small>${s.t}</small></div>${s.items.map((it,ii)=>{const id=si+'-'+ii,on=done.has(id);return`<label class="${on?'done':''}"><input type="checkbox" data-id="${id}" ${on?'checked':''}><span>${code(it)}</span></label>`;}).join('')}<div class="goal">過關目標：${esc(s.goal)}</div></div>`).join('');roadCount();}
+function roadCount(){const tot=STAGES.reduce((n,s)=>n+s.items.length,0),d=done.size;$('#roadCnt').textContent=`已完成 ${d} / ${tot} 項`;$('#roadBar').style.width=(d/tot*100)+'%';}
+$('#stages').addEventListener('change',e=>{const id=e.target.dataset.id;if(!id)return;e.target.checked?done.add(id):done.delete(id);e.target.closest('label').classList.toggle('done',e.target.checked);save(RK,[...done]);roadCount();});
+$('#roadReset').addEventListener('click',()=>{done=new Set();save(RK,[]);roadRender();});
+roadRender();
+
+/* ---------- API 對照 ---------- */
+const API=[
+ ['xTaskCreate / xTaskCreateStatic','K_THREAD_DEFINE / k_thread_create','堆疊要用 `K_THREAD_STACK_DEFINE` 宣告，大小事先決定'],
+ ['vTaskDelete(NULL)','執行緒函式 return 就結束；k_thread_abort()',''],
+ ['vTaskDelay(ticks)','k_msleep(ms) / k_sleep(K_MSEC(ms))','原本用 tick 算的要改成時間，Zephyr 的 tick 頻率可能不同'],
+ ['vTaskDelayUntil','k_sleep(K_TIMEOUT_ABS_MS(t))，或 k_timer + k_sem','絕對時間的 timeout 需要 `CONFIG_TIMEOUT_64BIT`'],
+ ['vTaskSuspend / vTaskResume','k_thread_suspend / k_thread_resume',''],
+ ['taskYIELD','k_yield',''],
+ ['vTaskPrioritySet','k_thread_priority_set','數字方向相反'],
+ ['xTaskGetTickCount','k_uptime_get()（毫秒）/ k_uptime_ticks()',''],
+ ['vTaskSuspendAll / xTaskResumeAll','k_sched_lock / k_sched_unlock','只擋執行緒切換，不擋中斷'],
+ ['taskENTER_CRITICAL / taskEXIT_CRITICAL','k_spin_lock / k_spin_unlock（或 irq_lock）','建議用 spinlock，多核心也安全'],
+ ['xQueueCreate / xQueueSend / xQueueReceive','K_MSGQ_DEFINE / k_msgq_put / k_msgq_get','每筆大小固定'],
+ ['xQueueSendFromISR','k_msgq_put(..., K_NO_WAIT)','不用另外的 FromISR 版本'],
+ ['portYIELD_FROM_ISR','不需要','ISR 結束時 Zephyr 自動判斷要不要切換執行緒'],
+ ['xSemaphoreCreateBinary','K_SEM_DEFINE(s, 0, 1)',''],
+ ['xSemaphoreCreateCounting','K_SEM_DEFINE(s, 初始值, 最大值)',''],
+ ['xSemaphoreCreateMutex','K_MUTEX_DEFINE','有優先權繼承；不能在 ISR 裡用'],
+ ['xSemaphoreCreateRecursiveMutex','k_mutex','Zephyr 的 mutex 本來就可以重複鎖，不用另一種'],
+ ['xTaskNotifyGive / ulTaskNotifyTake','每個執行緒配一個 k_sem','沒有一對一的 task notification'],
+ ['xTaskNotify（bits）/ xTaskNotifyWait','k_event_post / k_event_wait',''],
+ ['xEventGroupSetBits / xEventGroupWaitBits','k_event_post / k_event_wait / k_event_wait_all','`k_event_set` 會覆蓋，`k_event_post` 是 OR 上去'],
+ ['xStreamBufferSend / Receive','k_pipe，或 ring_buf + k_sem',''],
+ ['xMessageBufferSend','k_pipe（自己加長度標頭）或 k_msgq',''],
+ ['xTimerCreate / xTimerStart','k_timer_init / k_timer_start','回呼在中斷裡跑！要做事就改用 `k_work_delayable`'],
+ ['xTimerPendFunctionCall','k_work_submit','丟給系統工作佇列執行'],
+ ['pvPortMalloc / vPortFree','k_malloc / k_free，或 k_heap_alloc','`CONFIG_HEAP_MEM_POOL_SIZE` 預設可能是 0，會回傳 NULL'],
+ ['configASSERT','__ASSERT','要開 `CONFIG_ASSERT=y` 才有作用'],
+ ['vApplicationStackOverflowHook','CONFIG_STACK_SENTINEL / CONFIG_MPU_STACK_GUARD','當機時進 `k_sys_fatal_error_handler`'],
+ ['uxTaskGetStackHighWaterMark','k_thread_stack_space_get / CONFIG_THREAD_ANALYZER',''],
+ ['vApplicationIdleHook','沒有直接對應','省電交給 `CONFIG_PM`；其他工作用最低優先權執行緒'],
+ ['vApplicationTickHook','沒有（tickless 沒有固定 tick）','改用 k_timer'],
+ ['configMAX_SYSCALL_INTERRUPT_PRIORITY','Zephyr 自動處理','需要完全不被核心擋住的中斷：`CONFIG_ZERO_LATENCY_IRQS` + `IRQ_ZERO_LATENCY`（Cortex-M）'],
+ ['FreeRTOSConfig.h','prj.conf（Kconfig）+ Devicetree','功能開關在 Kconfig，硬體資訊在 Devicetree']];
+function apiRender(){const q=$('#apiQ').value.trim().toLowerCase(),rows=API.filter(r=>!q||r.join(' ').toLowerCase().includes(q));
+  $('#apiBody').innerHTML=rows.map(r=>`<tr><td><code>${esc(r[0])}</code></td><td><code>${esc(r[1])}</code></td><td>${code(r[2])}</td></tr>`).join('')||'<tr><td colspan="3" class="cap">找不到，換個關鍵字試試</td></tr>';
+  $('#apiCnt').textContent=`共 ${rows.length} / ${API.length} 項`;}
+$('#apiQ').addEventListener('input',apiRender);apiRender();
+
+/* ---------- 優先權換算 ---------- */
+const TASKS=[['音訊處理','u4',6],['藍牙事件','b6',5],['按鍵','b24',4],['電源管理','b5',3],['UI / 提示音','accent',2],['記錄 log','muted',1]];
+const tp=TASKS.map(t=>t[2]);
+function prioRender(){const max=+$('#pMax').value,np=+$('#pNum').value;$('#pMaxO').textContent=max+'（0～'+(max-1)+'）';$('#pNumO').textContent=np+'（0～'+(np-1)+'）';
+  tp.forEach((v,i)=>{if(v>max-1)tp[i]=max-1;});
+  let bad=false;const rows=TASKS.map((t,i)=>{const f=tp[i],z=(max-1)-f;if(z>np-1)bad=true;const fw=(f+1)/max*100,zw=(1-z/Math.max(max,np))*100;
+    return`<div class="nm"><input type="number" min="0" max="${max-1}" value="${f}" data-i="${i}" aria-label="${t[0]} 的 FreeRTOS 優先權"><span>${t[0]}</span></div><div class="ar">→</div><div class="bar"><i style="width:${Math.max(6,zw*.6)}%;background:var(--${t[1]})"></i><b class="mono ${z>np-1?'no':''}">${z}</b></div>`;}).join('');
+  $('#prioGrid').innerHTML=`<div class="hd">task（FreeRTOS 優先權，越大越優先）</div><div></div><div class="hd">Zephyr 優先權（越小越優先）</div>`+rows;
+  $('#prioOut').innerHTML=(bad?`<span class="no">有的換算結果超過 Zephyr 的搶占式範圍（0～${np-1}）。</span>要把 <code>CONFIG_NUM_PREEMPT_PRIORITIES</code> 調大，或重新整理優先權。`:`換算公式：<code>Zephyr = (${max} − 1) − FreeRTOS</code>。全部落在 Zephyr 的搶占式範圍（0～${np-1}）內。`)+
+    ` 長條越長代表越優先。FreeRTOS 的 idle task（優先權 0）不用搬，Zephyr 有自己的 idle 執行緒。`;}
+$('#prioGrid').addEventListener('change',e=>{const i=e.target.dataset.i;if(i==null)return;const max=+$('#pMax').value;tp[i]=Math.max(0,Math.min(max-1,Math.round(+e.target.value||0)));prioRender();});
+['pMax','pNum'].forEach(id=>$('#'+id).addEventListener('input',prioRender));prioRender();
+
+/* ---------- 初始化順序 ---------- */
+const LV=['PRE_KERNEL_1','PRE_KERNEL_2','POST_KERNEL','APPLICATION'];
+function bootRender(){const lv=$('#iLv').value,pr=+$('#iPr').value;$('#iPrO').textContent=pr;
+  const devs=[
+    {n:'時脈、中斷控制器、UART console',lv:'PRE_KERNEL_1',pr:0,dep:[]},
+    {n:'I²C 控制器',lv:'POST_KERNEL',pr:50,dep:[],id:'i2c'},
+    {n:'I2S 控制器',lv:'POST_KERNEL',pr:50,dep:[],id:'i2s'},
+    {n:'音訊 codec 晶片（透過 I²C 設定）',lv,pr,dep:['i2c'],id:'codec',me:true},
+    {n:'音訊應用（用 codec 和 I2S）',lv:'APPLICATION',pr:90,dep:['codec','i2s']}];
+  const key=d=>LV.indexOf(d.lv)*100+d.pr;
+  const order=devs.map((d,i)=>({...d,k:key(d),i})).sort((a,b)=>a.k-b.k||a.i-b.i);
+  const pos={};order.forEach((d,i)=>{if(d.id)pos[d.id]=i;});
+  let msg='';
+  const items=order.map((d,i)=>{let cls='',note='';
+    const tie=d.dep.filter(x=>{const o=order[pos[x]];return o&&o.k===d.k;});
+    const lateDep=d.dep.filter(x=>pos[x]>i&&order[pos[x]].k!==d.k);
+    if(lateDep.length){cls='fail';note=` <b>✕ 失敗：${lateDep.map(x=>order[pos[x]].n.split('（')[0]).join('、')}還沒初始化</b>`;}
+    else if(tie.length){cls='warn';note=' <span class="cap">⚠ 和依賴的驅動同等級、同數字，先後順序不保證</span>';}
+    if(d.me&&d.lv.startsWith('PRE_KERNEL')){note+=' <span class="cap">（核心還沒啟動，不能用 I²C 這種需要等待的匯流排）</span>';}
+    return`<li class="${cls}"><span class="lv">${d.lv} ${d.pr}</span><span>${d.me?'<b>':''}${esc(d.n)}${d.me?'</b>':''}${note}</span></li>`;}).join('');
+  $('#bootList').innerHTML=items;
+  const failN=(items.match(/class="fail"/g)||[]).length,warnN=(items.match(/class="warn"/g)||[]).length;
+  $('#bootOut').innerHTML=failN?`<span class="no">順序錯了，${failN} 個驅動會初始化失敗</span>，<code>device_is_ready()</code> 會回傳 false。開了 <code>CONFIG_CHECK_INIT_PRIORITIES</code> 的話，這在編譯時就會報錯。`:
+    warnN?'順序可能對也可能錯，取決於連結順序。不要依賴這種巧合，把 codec 的數字設得比 I²C（50）大。':
+    '<span class="ok">順序正確</span>：I²C 先好，codec 再用它設定暫存器，最後應用程式拿到兩個都準備好的裝置。實務上 codec 驅動的優先權通常由 Kconfig 選項設定（例如 <code>CONFIG_AUDIO_CODEC_INIT_PRIORITY</code>）。';}
+['iLv','iPr'].forEach(id=>$('#'+id).addEventListener('input',bootRender));bootRender();
+
+/* ---------- 注意事項 ---------- */
+const PF=[
+ ['核心','優先權方向反了','背景工作把音訊卡住，或某個 task 永遠跑不到','FreeRTOS 數字越大越優先，Zephyr 數字越小越優先','shell 打 `kernel threads` 看每個執行緒的實際優先權','在 OSAL 統一換算，不要每個地方各自改'],
+ ['核心','時間用 tick 寫死','延遲時間差了好幾倍，計時器太快或太慢','原本程式直接寫 tick 數或自己乘 `portTICK_PERIOD_MS`；Zephyr 的 tick 頻率由 `CONFIG_SYS_CLOCK_TICKS_PER_SEC` 決定，而且 `k_timeout_t` 不是整數','grep `portTICK`、`pdMS_TO_TICKS`、`xTaskGetTickCount`；看 `.config` 裡的 tick 頻率','全部改用 `K_MSEC()`、`k_msleep()`、`k_uptime_get()`'],
+ ['核心','計時器回呼在中斷裡','在 timer 回呼裡呼叫 `k_mutex_lock()` 或睡覺，當機或 assert','FreeRTOS 的軟體計時器在 timer service task 裡跑；Zephyr 的 `k_timer` 回呼在中斷裡跑','開 `CONFIG_ASSERT=y`，會直接停在錯的地方','回呼只做通知，或改用 `k_work_delayable`'],
+ ['核心','系統工作佇列被卡住','藍牙斷線、其他 work 都不跑','在系統工作佇列的 work 裡睡覺或等很久；藍牙 host 和很多驅動也共用它','thread analyzer 看 `sysworkq` 執行緒；在 work 裡加 log 量時間','會等待的工作開自己的 work queue（`k_work_queue_start`）'],
+ ['核心','協作式執行緒霸佔 CPU','開了一個協作式執行緒後，其他全部變慢','優先權是負數就不會被其他執行緒搶占','`kernel threads` 看哪些優先權是負的','一般應用執行緒用 0 以上的搶占式優先權'],
+ ['記憶體','k_malloc 回傳 NULL','原本在 FreeRTOS 好好的 malloc 全部失敗','Zephyr 的系統 heap 大小 `CONFIG_HEAP_MEM_POOL_SIZE` 預設可能是 0','看 `build/zephyr/.config` 裡的 `CONFIG_HEAP_MEM_POOL_SIZE`','設定 heap 大小，或改成 `K_HEAP_DEFINE`、靜態配置'],
+ ['記憶體','堆疊不夠','隨機當機、MPU fault、資料被蓋掉','Zephyr 每個執行緒的堆疊都要自己給大小，預設值（main 執行緒、系統工作佇列）對藍牙和音訊常常不夠','`CONFIG_THREAD_ANALYZER`、shell 的 `kernel stacks`；開 `CONFIG_STACK_SENTINEL` 或 MPU stack guard','依實測調大：`CONFIG_MAIN_STACK_SIZE`、`CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE`、各執行緒的堆疊'],
+ ['記憶體','浮點暫存器被蓋掉','LC3 或 DSP 運算偶爾算出怪數字','好幾個執行緒都用 FPU，但沒開 FPU 共用，切換時沒存浮點暫存器','檢查 `.config` 的 `CONFIG_FPU`、`CONFIG_FPU_SHARING`','有多個執行緒用浮點就開 `CONFIG_FPU_SHARING`'],
+ ['記憶體','DMA 緩衝放錯地方','I2S 資料錯亂、DMA 錯誤','緩衝沒對齊、放在 DMA 存取不到的 RAM 區，或有 cache 但沒處理一致性','`build/zephyr/zephyr.map` 看緩衝位址；對照晶片的記憶體圖','用 `__aligned()`；在 Devicetree 定義記憶體區域（`zephyr,memory-region`），把緩衝放進去'],
+ ['中斷','中斷優先權和以前不一樣','某個中斷延遲變大，或被核心擋住','Cortex-M 上 Zephyr 會保留部分優先等級給核心，`IRQ_CONNECT` 寫的數字會加上偏移，和 FreeRTOS 直接設 NVIC 不同','看 `zephyr.dts` 裡各裝置的 `interrupts` 屬性；用除錯器讀 NVIC 暫存器','重新規劃優先權；真的要零延遲才用 `CONFIG_ZERO_LATENCY_IRQS`（這種 ISR 不能呼叫任何核心 API）'],
+ ['中斷','在 ISR 裡印 log','音訊有爆音、斷斷續續','`printk` 或即時模式的 LOG 會在 ISR 裡同步輸出，花很久','暫時拿掉 log，看問題是否消失','用 `CONFIG_LOG_MODE_DEFERRED=y`；音訊 ISR 裡完全不要印'],
+ ['中斷','在 ISR 裡呼叫會等待的 API','偶爾當機，原因不明','`k_mutex_lock`、`k_msleep`、`K_FOREVER` 等不能在 ISR 用；沒開 assert 時不一定馬上出錯','開 `CONFIG_ASSERT=y`','ISR 只用 `K_NO_WAIT`，工作交給執行緒或 work'],
+ ['建置','Devicetree 改了沒生效','改了 overlay，腳位還是舊的','overlay 檔名或位置不對、節點 `status` 是 "disabled"、被別的檔案又蓋回去','看 `build/zephyr/zephyr.dts` 的最終結果','確認 overlay 檔名（`app.overlay` 或 `boards/<板子>.overlay`），記得加 `status = "okay"`'],
+ ['建置','Kconfig 設了沒生效','prj.conf 寫了 `=y`，功能還是沒有','依賴的選項沒開，被悄悄關掉','建置訊息的警告；`build/zephyr/.config`；menuconfig 按 `/` 搜尋看依賴','把依賴的選項一起打開'],
+ ['建置','驅動初始化順序錯','某個裝置 `device_is_ready()` 是 false','驅動在它依賴的東西之前初始化','`west build -t initlevels`；`CONFIG_CHECK_INIT_PRIORITIES` 會在建置時報錯','調整等級或優先權數字（見上面的「開機初始化順序」）'],
+ ['建置','C 函式庫行為不同','printf 印不出浮點數、某些函式找不到','Zephyr 預設用 picolibc，和原本的 newlib 或廠商 libc 設定不同','看 `.config` 裡 `CONFIG_PICOLIBC`、`CONFIG_NEWLIB_LIBC`','依需要開對應選項，例如 `CONFIG_PICOLIBC_IO_FLOAT`'],
+ ['藍牙','藍牙問題沒有封包可看','連不上、斷線，只能猜','沒有把 HCI 封包抓出來','開 `CONFIG_BT_DEBUG_MONITOR_UART=y`（或 `_RTT`），用 `btmon` 或 Wireshark 看','藍牙問題第一步永遠是先抓 HCI log，再和藍牙部門一起看'],
+ ['藍牙','Zephyr 版本一直在變','升版後編不過、API 改名','Zephyr 每年發好幾個版本，API 和選項名稱會調整','看 release notes 和 migration guide','在 west.yml 鎖定版本，產品選 LTS；升版當作一個專案來排'],
+ ['藍牙','換了堆疊要重新認證','產品快出貨才發現要重做認證','藍牙 host 從原本的堆疊換成 Zephyr，Bluetooth SIG 的 qualification 要重新做','查 Bluetooth SIG 的 Launch Studio，以及 Zephyr 文件的 Bluetooth qualification 說明','專案一開始就把認證時程和費用排進去'],
+ ['藍牙','授權問題','法務擋下出貨','Zephyr 是 Apache 2.0；GPL 的程式不能放進 Zephyr 裡；第三方程式庫各有授權','盤點所有第三方程式碼的授權','不開源的部分用 module 或 blob 方式提供，先和法務確認']];
+let pfC='all';
+function pfRender(){const rows=PF.filter(p=>pfC==='all'||p[0]===pfC);
+  $('#cards').innerHTML=rows.map(p=>`<div class="card"><div class="fh"><h3>${esc(p[1])}</h3><span class="tag">${p[0]}</span></div><dl><dt>症狀</dt><dd>${code(p[2])}</dd><dt>原因</dt><dd>${code(p[3])}</dd><dt>怎麼查</dt><dd>${code(p[4])}</dd><dt>怎麼改</dt><dd>${code(p[5])}</dd></dl></div>`).join('');}
+seg($('#pfSeg'),b=>{pfC=b.dataset.c;pfRender();});pfRender();
+
+/* ---------- 搜尋關鍵字 ---------- */
+const KW=['board porting','soc porting hwmv2','devicetree bindings','pinctrl','system timer driver','clock control','init priority','device driver model','bluetooth hci driver','ipc_service','LE audio','ISO channels','i2s','audio codec','power management','device runtime pm','tickless','mcuboot','west manifest','west blobs','twister','thread analyzer','tracing','zero latency interrupts'];
+$('#kw').innerHTML=KW.map(k=>`<a href="https://docs.zephyrproject.org/latest/search.html?q=${encodeURIComponent(k)}" target="_blank" rel="noopener">${esc(k)}</a>`).join('');
+
+/* ---------- 和藍牙部門對齊 ---------- */
+const QS=['藍牙控制器跑在哪顆核心？host 打算跑在哪顆？','HCI 用什麼傳輸：同一顆晶片的共享記憶體（IPC）、UART，還是自訂？','控制器韌體是開源，還是以 blob 提供？','控制器支援哪些 LE 功能：ISO（CIS／BIS）、2M PHY、LE Audio？','要不要支援 Classic（A2DP／HFP）？host 用 Zephyr 的還是自家的？','音訊編解碼（LC3、SBC、mSBC）在主核心還是 DSP 上跑？','I2S／PCM 的時脈從哪來？左右耳怎麼同步？','驅動要符合 Zephyr 標準 API（i2s.h、audio codec API），還是自訂介面？','控制器睡眠和系統電源管理怎麼協調？誰負責喚醒？','藍牙相關的 Kconfig 和 Devicetree 由誰維護？','測試分工：誰跑藍牙相容性測試、誰負責 SIG 認證？','出問題時的 HCI log 要怎麼抓、給誰看？'];
+const QK='zp-bt-qs';const qd=new Set(load(QK));
+$('#qs').innerHTML=QS.map((q,i)=>`<label><input type="checkbox" data-i="${i}" ${qd.has(i)?'checked':''}><span>${esc(q)}</span></label>`).join('');
+$('#qs').addEventListener('change',e=>{const i=e.target.dataset.i;if(i==null)return;e.target.checked?qd.add(+i):qd.delete(+i);save(QK,[...qd]);});
+})();
+</script>
+</body>
+</html>
